@@ -158,15 +158,10 @@
                     <div class="legend-color" style="background-color: #9b59b6; opacity: 0.5;"></div>
                     <span>历史事件标注</span>
                 </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background-color: #3498db; opacity: 0.2;"></div>
-                    <span>现代行政区划</span>
-                </div>
             </div>
         </div>
         <div class="layer-controls">
             <button onclick="toggleLayer('base', this)">天地图底图</button>
-            <button onclick="toggleLayer('henanAdmin', this)">河南省行政区划</button>
             <button onclick="toggleLayer('farmland', this)">农耕区（核心+次级）</button>
             <button onclick="toggleLayer('cities', this)">都城与重镇</button>
             <button onclick="toggleLayer('water', this)">水利工程</button>
@@ -202,10 +197,9 @@
             }
         ).addTo(map);
 
-        // 定义图层组（包含在线行政区图层）
+        // 定义图层组
         const layers = {
             base: L.layerGroup([tiandituLayer, tiandituLabelLayer]), // 天地图底图组
-            henanAdmin: L.layerGroup(), // 河南省行政区划图层（在线加载）
             farmland: L.layerGroup(), // 农耕区图层
             cities: L.layerGroup(), // 都城图层
             water: L.layerGroup(), // 水利工程图层
@@ -213,35 +207,7 @@
             events: L.layerGroup() // 历史事件标注图层
         };
 
-        // 1. 加载Geoscence Online河南省行政区图层
-        const henanAdminLayer = L.esri.featureLayer({
-            url: "https://www.geosceneonline.cn/server/rest/services/Hosted/河南省_市/FeatureServer",
-            style: function(feature) {
-                return {
-                    color: '#3498db',       // 边界颜色
-                    weight: 2,             // 边界宽度
-                    opacity: 0.8,          // 边界透明度
-                    fillColor: '#3498db',  // 填充颜色
-                    fillOpacity: 0.2       // 填充透明度（浅透明，不影响其他要素）
-                };
-            },
-            onEachFeature: function(feature, layer) {
-                // 绑定行政区信息弹窗
-                if (feature.properties && feature.properties.name) {
-                    layer.bindPopup(`
-                        <div class="popup-title">${feature.properties.name}</div>
-                        <div class="popup-content">
-                            现代行政区划：${feature.properties.name}
-                        </div>
-                    `);
-                }
-            }
-        }).addTo(layers.henanAdmin);
-
-        // 将行政区图层添加到地图
-        map.addLayer(layers.henanAdmin);
-
-        // 2. 添加地理屏障（山脉）
+        // 添加地理屏障（山脉）
         const mountains = [
             // 太行山南段
             L.polyline(
@@ -276,7 +242,7 @@
         ];
         mountains.forEach(m => m.addTo(layers.mountains));
 
-        // 3. 添加农耕区（区分核心与次级，丰富类型）
+        // 添加农耕区（区分核心与次级，丰富类型）
         const farmlands = [
             // 核心农耕区：豫东平原（小麦/粟主产）
             L.polygon(
@@ -326,7 +292,7 @@
         ];
         farmlands.forEach(f => f.addTo(layers.farmland));
 
-        // 4. 添加都城与重镇（丰富层级和描述）
+        // 添加都城与重镇（丰富层级和描述）
         const cities = [
             // 安阳（殷墟）- 商代都城
             L.marker([36.09, 114.35], {
@@ -389,7 +355,7 @@
         ];
         cities.forEach(c => c.addTo(layers.cities));
 
-        // 5. 添加水利工程（增加类型和作用描述）
+        // 添加水利工程（增加类型和作用描述）
         const waterProjects = [
             // 鸿沟水利工程（战国）
             L.polyline(
@@ -441,7 +407,7 @@
         ];
         waterProjects.forEach(w => w.addTo(layers.water));
 
-        // 6. 添加历史事件标注（新增维度，强化因果关系）
+        // 添加历史事件标注（新增维度，强化因果关系）
         const events = [
             // 商王武丁时期农耕扩张
             L.circleMarker([35.5, 114.0], {
@@ -490,7 +456,7 @@
 
         // 添加所有图层到地图（默认隐藏，通过按钮控制显示）
         Object.values(layers).forEach(layer => {
-            if (layer !== layers.base && layer !== layers.henanAdmin) {
+            if (layer !== layers.base) {
                 map.addLayer(layer);
             }
         });
