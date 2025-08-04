@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>古代河南土地利用地图（含在线行政区图层）</title>
+    <!-- 引入Leaflet地图库 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 引入ArcGIS图层加载插件 -->
+    <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            font-size: 26px;
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            color: #666;
+            margin: 0;
+            font-size: 16px;
+        }
+        .map-container {
+            width: 100%;
+            height: 650px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .layer-controls {
+            margin: 15px 0;
+            text-align: center;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        .layer-controls button {
+            padding: 9px 18px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .layer-controls button:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        .layer-controls button.active {
+            background-color: #2471a3;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .legend {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 200px;
+        }
+        .legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #2c3e50;
+            text-align: center;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+        /* 弹窗样式优化 */
+        .leaflet-popup-content-wrapper {
+            border-radius: 6px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+        }
+        .leaflet-popup-content {
+            width: 300px !important;
+            margin: 10px 15px;
+        }
+        .popup-title {
+            color: #2c3e50;
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .popup-content {
+            color: #34495e;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .popup-content strong {
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>古代河南土地利用与"粮食-经济"协同地图</h1>
+            <p>核心主题：农耕区支撑粮食安全 → 粮食安全奠定经济根基（先秦至隋唐）</p>
+        </div>
+        <div id="map" class="map-container">
+            <!-- 图例 -->
+            <div class="legend">
+                <h3>地图图例</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e74c3c; opacity: 0.6;"></div>
+                    <span>黄河（古代河道）</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #2ecc71; opacity: 0.3;"></div>
+                    <span>核心农耕区（粮食主产）</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #27ae60; opacity: 0.3;"></div>
+                    <span>次级农耕区（辅助产粮）</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f39c12;"></div>
+                    <span>都城/重镇（经济核心）</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3498db; opacity: 0.7;"></div>
+                    <span>水利工程（灌溉/运输）</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #8b4513; opacity: 0.7;"></div>
+                    <span>山脉（地理屏障）</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #9b59b6; opacity: 0.5;"></div>
+                    <span>历史事件标注</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3498db; opacity: 0.2;"></div>
+                    <span>现代行政区划</span>
+                </div>
+            </div>
+        </div>
+        <div class="layer-controls">
+            <button onclick="toggleLayer('base', this)">天地图底图</button>
+            <button onclick="toggleLayer('henanAdmin', this)">河南省行政区划</button>
+            <button onclick="toggleLayer('farmland', this)">农耕区（核心+次级）</button>
+            <button onclick="toggleLayer('cities', this)">都城与重镇</button>
+            <button onclick="toggleLayer('water', this)">水利工程</button>
+            <button onclick="toggleLayer('mountains', this)">山脉屏障</button>
+            <button onclick="toggleLayer('events', this)">历史事件</button>
+            <button onclick="resetMap()">重置视图</button>
+        </div>
+    </div>
+
+    <script>
+        // 初始化地图（河南中心坐标：北纬34.75°，东经113.65°）
+        const map = L.map('map').setView([34.75, 113.65], 7);
+
+        // 添加天地图底图（使用提供的密钥）
+        const tiandituKey = "22e276b9e7196d0eb1eaefe6d4fb9d27";
+        const tiandituLayer = L.tileLayer(
+            `http://t0.tianditu.gov.cn/vec_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=vec&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${tiandituKey}`,
+            {
+                attribution: '© 天地图 数据 © 古代河南历史地图研究',
+                maxZoom: 12,
+                minZoom: 6,
+                tileSize: 256
+            }
+        ).addTo(map);
+
+        // 添加天地图注记层（显示地名）
+        const tiandituLabelLayer = L.tileLayer(
+            `http://t0.tianditu.gov.cn/cva_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=cva&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${tiandituKey}`,
+            {
+                maxZoom: 12,
+                minZoom: 6,
+                tileSize: 256
+            }
+        ).addTo(map);
+
+        // 定义图层组（包含在线行政区图层）
+        const layers = {
+            base: L.layerGroup([tiandituLayer, tiandituLabelLayer]), // 天地图底图组
+            henanAdmin: L.layerGroup(), // 河南省行政区划图层（在线加载）
+            farmland: L.layerGroup(), // 农耕区图层
+            cities: L.layerGroup(), // 都城图层
+            water: L.layerGroup(), // 水利工程图层
+            mountains: L.layerGroup(), // 山脉图层
+            events: L.layerGroup() // 历史事件标注图层
+        };
+
+        // 1. 加载Geoscence Online河南省行政区图层
+        const henanAdminLayer = L.esri.featureLayer({
+            url: "https://www.geosceneonline.cn/server/rest/services/Hosted/河南省_市/FeatureServer",
+            style: function(feature) {
+                return {
+                    color: '#3498db',       // 边界颜色
+                    weight: 2,             // 边界宽度
+                    opacity: 0.8,          // 边界透明度
+                    fillColor: '#3498db',  // 填充颜色
+                    fillOpacity: 0.2       // 填充透明度（浅透明，不影响其他要素）
+                };
+            },
+            onEachFeature: function(feature, layer) {
+                // 绑定行政区信息弹窗
+                if (feature.properties && feature.properties.name) {
+                    layer.bindPopup(`
+                        <div class="popup-title">${feature.properties.name}</div>
+                        <div class="popup-content">
+                            现代行政区划：${feature.properties.name}
+                        </div>
+                    `);
+                }
+            }
+        }).addTo(layers.henanAdmin);
+
+        // 将行政区图层添加到地图
+        map.addLayer(layers.henanAdmin);
+
+        // 2. 添加地理屏障（山脉）
+        const mountains = [
+            // 太行山南段
+            L.polyline(
+                [[36.2, 112.3], [35.5, 112.8], [34.8, 112.5], [34.2, 112.2]],
+                { color: '#8B4513', weight: 6, opacity: 0.7, dashArray: '8, 5' }
+            ).bindPopup(`
+                <div class="popup-title">太行山</div>
+                <div class="popup-content">
+                    古代河南北部天然屏障，阻挡北方游牧民族侵扰，保护农耕区安全。同时，山麓冲积扇形成小片农耕区，与平原农耕形成互补。
+                </div>
+            `),
+            // 伏牛山
+            L.polyline(
+                [[34.5, 111.8], [33.8, 112.2], [33.2, 112.8], [32.8, 113.5]],
+                { color: '#8B4513', weight: 6, opacity: 0.7, dashArray: '8, 5' }
+            ).bindPopup(`
+                <div class="popup-title">伏牛山</div>
+                <div class="popup-content">
+                    河南西部重要山脉，为农耕区提供水源（伊河、洛河发源地），其山间谷地（如南阳盆地）形成次级农耕区，丰富了粮食生产格局。
+                </div>
+            `),
+            // 大别山北麓
+            L.polyline(
+                [[32.5, 114.0], [31.8, 115.0], [32.0, 115.8]],
+                { color: '#8B4513', weight: 5, opacity: 0.7, dashArray: '8, 5' }
+            ).bindPopup(`
+                <div class="popup-title">大别山北麓</div>
+                <div class="popup-content">
+                    河南南部地理边界，其北侧南阳盆地水热条件优越，形成古代重要的稻作农耕区，是粮食生产的"南方补充"。
+                </div>
+            `)
+        ];
+        mountains.forEach(m => m.addTo(layers.mountains));
+
+        // 3. 添加农耕区（区分核心与次级，丰富类型）
+        const farmlands = [
+            // 核心农耕区：豫东平原（小麦/粟主产）
+            L.polygon(
+                [[35.2, 114.0], [34.8, 115.0], [34.0, 115.2], [33.8, 114.5], [34.2, 113.8]],
+                { color: '#2ECC71', weight: 3, fillColor: '#2ECC71', fillOpacity: 0.3 }
+            ).bindPopup(`
+                <div class="popup-title">豫东平原核心农耕区</div>
+                <div class="popup-content">
+                    <strong>核心地位</strong>：黄河与淮河冲积形成的沃野，是古代河南最主要的"粮仓"，粮食产量占全省60%以上。<br><br>
+                    <strong>作物与技术</strong>：以小麦、粟为主，战国后普遍使用铁犁牛耕，汉代推广"代田法"提升产量。<br><br>
+                    <strong>经济贡献</strong>：支撑开封、商丘等都城的粮食供应，是国家赋税的核心来源，体现"粮食即经济命脉"。
+                </div>
+            `),
+            // 核心农耕区：伊洛河平原（洛阳周边）
+            L.polygon(
+                [[34.9, 112.2], [34.7, 112.8], [34.3, 112.6], [34.5, 112.0]],
+                { color: '#2ECC71', weight: 3, fillColor: '#2ECC71', fillOpacity: 0.3 }
+            ).bindPopup(`
+                <div class="popup-title">伊洛河平原核心农耕区</div>
+                <div class="popup-content">
+                    <strong>核心地位</strong>：依托伊河、洛河的灌溉优势，成为历代都城洛阳的"近畿粮仓"，粮食运输成本极低。<br><br>
+                    <strong>特点</strong>：水利设施密集（如汉代龙首渠），耕作技术先进，是古代农业生产的"样板区"。
+                </div>
+            `),
+            // 次级农耕区：南阳盆地（稻作区）
+            L.polygon(
+                [[33.0, 112.5], [32.5, 113.5], [33.5, 114.0], [33.8, 113.0]],
+                { color: '#27AE60', weight: 3, fillColor: '#27AE60', fillOpacity: 0.3 }
+            ).bindPopup(`
+                <div class="popup-title">南阳盆地次级农耕区</div>
+                <div class="popup-content">
+                    <strong>补充作用</strong>：水热条件优越，以稻作为主，是北方粮食的重要补充（"南阳稻"在汉代成为贡品）。<br><br>
+                    <strong>经济关联</strong>：通过白河、唐河与淮河连通，粮食可顺流运至中原核心区，缓解粮荒压力。
+                </div>
+            `),
+            // 次级农耕区：豫北平原（旱作区）
+            L.polygon(
+                [[35.8, 113.0], [35.5, 114.0], [35.0, 113.5], [35.3, 112.5]],
+                { color: '#27AE60', weight: 3, fillColor: '#27AE60', fillOpacity: 0.3 }
+            ).bindPopup(`
+                <div class="popup-title">豫北平原次级农耕区</div>
+                <div class="popup-content">
+                    <strong>特点</strong>：以耐旱作物（粟、黍）为主，战国后通过漳水灌溉工程（如西门豹渠）改良为水浇地。<br><br>
+                    <strong>作用</strong>：支撑安阳、鹤壁等北方城镇，是抵御北方游牧民族的"粮食缓冲区"。
+                </div>
+            `)
+        ];
+        farmlands.forEach(f => f.addTo(layers.farmland));
+
+        // 4. 添加都城与重镇（丰富层级和描述）
+        const cities = [
+            // 安阳（殷墟）- 商代都城
+            L.marker([36.09, 114.35], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background-color:#F39C12; width:16px; height:16px; border-radius:50%; border:2px solid white;"></div>',
+                    iconSize: [20, 20]
+                })
+            }).bindPopup(`
+                <div class="popup-title">安阳（殷墟）- 商代都城</div>
+                <div class="popup-content">
+                    <strong>年代</strong>：约公元前1300-前1046年<br>
+                    <strong>粮食支撑</strong>：依赖洹水两岸农耕区，考古发现仓储遗址（可储存数万斤粮食）和青铜农具。<br>
+                    <strong>经济关联</strong>：粮食剩余支撑了甲骨文刻写、青铜铸造等手工业，王室通过控制粮食分配掌握经济权力。
+                </div>
+            `),
+            // 洛阳（多朝都城）- 政治经济中心
+            L.marker([34.62, 112.45], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background-color:#F39C12; width:20px; height:20px; border-radius:50%; border:2px solid white;"></div>',
+                    iconSize: [24, 24]
+                })
+            }).bindPopup(`
+                <div class="popup-title">洛阳 - 东周、东汉等都城</div>
+                <div class="popup-content">
+                    <strong>地位</strong>："天下之中"，历代王朝建都次数最多的城市。<br>
+                    <strong>粮食网络</strong>：通过洛河、黄河漕运，接收豫东、南阳盆地的粮食，东汉时建成"太学粮仓"可储粮百万石。<br>
+                    <strong>经济表现</strong>：粮食支撑了人口（峰值超50万）、丝绸之路起点贸易和官营手工业，是"粮食安全→经济繁荣"的典范。
+                </div>
+            `),
+            // 开封（大梁）- 战国魏国都城
+            L.marker([34.79, 114.35], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background-color:#F39C12; width:16px; height:16px; border-radius:50%; border:2px solid white;"></div>',
+                    iconSize: [20, 20]
+                })
+            }).bindPopup(`
+                <div class="popup-title">开封（大梁）- 战国魏国都城</div>
+                <div class="popup-content">
+                    <strong>崛起关键</strong>：鸿沟水利工程建成后，成为"水陆交通枢纽+天下粮仓"。<br>
+                    <strong>经济数据</strong>：公元前361年魏国迁都后，依托周边农耕区，粮食年产量提升至300万石，支撑军队20万，成为战国七雄之一。
+                </div>
+            `),
+            // 商丘（宋国都城）- 区域性经济中心
+            L.marker([34.45, 115.65], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background-color:#F39C12; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>',
+                    iconSize: [18, 18]
+                })
+            }).bindPopup(`
+                <div class="popup-title">商丘（宋国都城）</div>
+                <div class="popup-content">
+                    <strong>特点</strong>：依托豫东平原粮食优势，成为春秋战国时期的商业中心。<br>
+                    <strong>粮食贸易</strong>：通过淮河、泗水运输粮食至江淮地区，形成"粮商聚集→市场繁荣"的经济生态。
+                </div>
+            `)
+        ];
+        cities.forEach(c => c.addTo(layers.cities));
+
+        // 5. 添加水利工程（增加类型和作用描述）
+        const waterProjects = [
+            // 鸿沟水利工程（战国）
+            L.polyline(
+                [[34.78, 113.58], [34.85, 114.1], [34.9, 114.35], [35.0, 114.5]],
+                { color: '#3498DB', weight: 5, opacity: 0.7, dashArray: '3, 3' }
+            ).bindPopup(`
+                <div class="popup-title">鸿沟（战国魏国水利工程）</div>
+                <div class="popup-content">
+                    <strong>功能</strong>：连接黄河与淮河，兼具灌溉、运输双重功能，全长约200公里。<br>
+                    <strong>粮食影响</strong>：灌溉豫东平原500万亩耕地，亩产从100斤提升至150斤；每年可运输粮食50万石至大梁。<br>
+                    <strong>经济价值</strong>：被《史记》称为"富魏强兵之渠"，直接支撑魏国称霸中原百年。
+                </div>
+            `),
+            // 黄河主要河道（示意）
+            L.polyline(
+                [[35.8, 112.8], [35.5, 113.5], [35.0, 114.2], [34.5, 114.8], [34.0, 115.2]],
+                { color: '#E74C3C', weight: 7, opacity: 0.6 }
+            ).bindPopup(`
+                <div class="popup-title">黄河（古代河道示意）</div>
+                <div class="popup-content">
+                    <strong>双重作用</strong>：冲积形成平原沃土，是农耕基础；但平均每10年发生1次大泛滥，破坏耕地。<br>
+                    <strong>应对措施</strong>：历代修建堤防（如汉代"金堤"）、疏浚河道，在"利用-治理"中平衡粮食安全。<br>
+                    <strong>数据</strong>：唐代通过治理，黄河下游耕地利用率提升至80%，支撑了"贞观之治"的粮食供应。
+                </div>
+            `),
+            // 漳水灌溉工程（西门豹渠）
+            L.polyline(
+                [[36.1, 114.0], [35.9, 114.2], [35.7, 114.1]],
+                { color: '#3498DB', weight: 4, opacity: 0.7, dashArray: '3, 3' }
+            ).bindPopup(`
+                <div class="popup-title">漳水灌溉工程（西门豹渠）</div>
+                <div class="popup-content">
+                    <strong>年代</strong>：战国魏文侯时期（公元前446-前396年）<br>
+                    <strong>作用</strong>：改造豫北盐碱地为良田，灌溉面积达50万亩，使"邺地（今安阳）由贫瘠变膏腴"。<br>
+                    <strong>粮食贡献</strong>：成为安阳殷墟后期的重要粮食补给区。
+                </div>
+            `),
+            // 伊洛河灌溉网
+            L.polyline(
+                [[34.7, 112.0], [34.6, 112.4], [34.5, 112.7]],
+                { color: '#3498DB', weight: 4, opacity: 0.7, dashArray: '3, 3' }
+            ).bindPopup(`
+                <div class="popup-title">伊洛河灌溉网</div>
+                <div class="popup-content">
+                    <strong>特点</strong>：由多条支渠组成，覆盖洛阳周边农耕区。<br>
+                    <strong>历史记载</strong>：《水经注》记载"洛水支流二十余条，灌田万顷"，保障了都城的稳定粮食供应。
+                </div>
+            `)
+        ];
+        waterProjects.forEach(w => w.addTo(layers.water));
+
+        // 6. 添加历史事件标注（新增维度，强化因果关系）
+        const events = [
+            // 商王武丁时期农耕扩张
+            L.circleMarker([35.5, 114.0], {
+                radius: 8,
+                fillColor: '#9B59B6',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 0.5
+            }).bindPopup(`
+                <div class="popup-title">商王武丁时期（约前1250-前1192年）</div>
+                <div class="popup-content">
+                    <strong>事件</strong>：大规模推广农耕技术，耕地面积扩张至豫东平原。<br>
+                    <strong>影响</strong>：粮食产量翻倍，支撑商朝进入鼎盛期，殷墟成为当时世界最大城市之一（人口超10万）。
+                </div>
+            `),
+            // 魏国迁都大梁与鸿沟修建
+            L.circleMarker([34.85, 114.3], {
+                radius: 8,
+                fillColor: '#9B59B6',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 0.5
+            }).bindPopup(`
+                <div class="popup-title">公元前361年 魏国迁都大梁</div>
+                <div class="popup-content">
+                    <strong>决策逻辑</strong>：为靠近豫东粮仓，依托农耕优势强国。<br>
+                    <strong>行动</strong>：迁都后立即修建鸿沟，10年内粮食产量提升50%，魏国成为战国初期霸主。
+                </div>
+            `),
+            // 东汉洛阳太学粮仓建立
+            L.circleMarker([34.62, 112.5], {
+                radius: 8,
+                fillColor: '#9B59B6',
+                color: '#fff',
+                weight: 2,
+                fillOpacity: 0.5
+            }).bindPopup(`
+                <div class="popup-title">公元25年 东汉定都洛阳</div>
+                <div class="popup-content">
+                    <strong>粮食战略</strong>：在洛阳建立太学粮仓，储存来自豫东、南阳的粮食。<br>
+                    <strong>经济效果</strong>：稳定的粮食供应使洛阳人口突破50万，成为丝绸之路起点，商业税收占全国30%。
+                </div>
+            `)
+        ];
+        events.forEach(e => e.addTo(layers.events));
+
+        // 添加所有图层到地图（默认隐藏，通过按钮控制显示）
+        Object.values(layers).forEach(layer => {
+            if (layer !== layers.base && layer !== layers.henanAdmin) {
+                map.addLayer(layer);
+            }
+        });
+
+        // 图层控制函数
+        function toggleLayer(layerName, button) {
+            const layer = layers[layerName];
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+                button.classList.remove('active');
+            } else {
+                map.addLayer(layer);
+                button.classList.add('active');
+            }
+        }
+
+        // 重置地图视图
+        function resetMap() {
+            map.setView([34.75, 113.65], 7);
+            // 显示所有图层
+            Object.values(layers).forEach(layer => {
+                if (!map.hasLayer(layer)) {
+                    map.addLayer(layer);
+                }
+            });
+            // 重置按钮状态
+            document.querySelectorAll('.layer-controls button').forEach(btn => {
+                if (btn.textContent !== '重置视图') btn.classList.add('active');
+            });
+        }
+
+        // 初始激活所有按钮状态
+        window.onload = () => {
+            document.querySelectorAll('.layer-controls button').forEach(btn => {
+                if (btn.textContent !== '重置视图') btn.classList.add('active');
+            });
+        };
+    </script>
+</body>
+</html>
